@@ -25,6 +25,7 @@ RUN . /opt/ros/jazzy/setup.sh && \
     colcon build --symlink-install
 
 # Entrypoint: source workspace and launch rosbridge
+# Context is docker/ so the file is at the root of the build context
 COPY docker/ros2_entrypoint.sh /ros2_entrypoint.sh
 RUN chmod +x /ros2_entrypoint.sh
 
