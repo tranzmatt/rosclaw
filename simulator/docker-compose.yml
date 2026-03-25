@@ -1,0 +1,65 @@
+version: "3.8"
+
+# TurtleBot4 sim stack
+#
+# Usage:
+#   docker compose up sim          # sim + rosbridge only
+#   docker compose up              # everything including rosbot server
+#
+# Set your Anthropic API key:
+#   export ANTHROPIC_API_KEY=sk-ant-...
+#   docker compose up
+
+services:
+
+  # TurtleBot4 Gazebo simulation + rosbridge
+  sim:
+    build:
+      context: .
+      dockerfile: Dockerfile.tb4sim
+    image: rosbot/tb4sim:latest
+    ports:
+      - "9090:9090"     # rosbridge WebSocket
+    environment:
+      - ROS_DOMAIN_ID=0
+      - TURTLEBOT4_MODEL=standard
+      - DISPLAY=${DISPLAY}
+      - IGN_GAZEBO_RESOURCE_PATH=/opt/ros/jazzy/share
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # Persist Gazebo model cache
+      - gz_cache:/root/.gz
+    command: >
+      bash -c "
+        source /opt/ros/jazzy/setup.bash &&
+        ros2 launch turtlebot4_ignition_bringup turtlebot4_ignition.launch.py &
+        sleep 10 &&
+        ros2 launch rosbridge_server rosbridge_websocket_launch.xml
+      "
+    networks:
+      - rosbot
+
+  # RosBot natural language server
+  rosbot:
+    build:
+      context: .
+      dockerfile: Dockerfile.rosbot
+    image: rosbot/server:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ROSBRIDGE_URL=ws://sim:9090
+      - WHISPER_MODEL=${WHISPER_MODEL:-base}
+      - TWIST_STAMPED=false
+    depends_on:
+      - sim
+    networks:
+      - rosbot
+
+networks:
+  rosbot:
+    driver: bridge
+
+volumes:
+  gz_cache:

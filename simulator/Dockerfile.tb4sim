@@ -1,0 +1,33 @@
+# TurtleBot4 Simulator + rosbridge
+# ROS2 Jazzy + Gazebo Harmonic + turtlebot4_simulator
+
+FROM ros:jazzy-ros-base AS base
+
+# Avoid interactive prompts during apt
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install turtlebot4 simulator, rosbridge, and Gazebo Harmonic deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-jazzy-turtlebot4-simulator \
+    ros-jazzy-turtlebot4-navigation \
+    ros-jazzy-turtlebot4-bringup \
+    ros-jazzy-rosbridge-suite \
+    ros-jazzy-nav2-bringup \
+    ros-jazzy-slam-toolbox \
+    gz-harmonic \
+    python3-colcon-common-extensions \
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Environment
+ENV ROS_DOMAIN_ID=0
+ENV TURTLEBOT4_MODEL=standard
+ENV IGN_GAZEBO_RESOURCE_PATH=/opt/ros/jazzy/share
+
+# Entrypoint
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["ros2", "launch", "turtlebot4_ignition_bringup", "turtlebot4_ignition.launch.py"]
