@@ -119,7 +119,7 @@ class RosbridgeClient:
             return False
 
     async def ensure_connected(self) -> bool:
-        if self._connected and self.ws and not self.ws.closed:
+        if self._connected and self.ws and self.ws.close_code is None:
             return True
         return await self.connect()
 
@@ -189,7 +189,7 @@ class RosbridgeClient:
 
     @property
     def connected(self) -> bool:
-        return self._connected and self.ws is not None and not self.ws.closed
+        return self._connected and self.ws is not None and self.ws.close_code is None
 
 
 ros = RosbridgeClient(ROSBRIDGE_URL)
