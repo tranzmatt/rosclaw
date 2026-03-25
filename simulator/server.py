@@ -416,11 +416,44 @@ async def run_agent_anthropic(user_message: str, ws_client: WebSocket) -> str:
 # Agent — vLLM / OpenAI backend
 # ---------------------------------------------------------------------------
 
+KNOWN_TOOLS = {t["name"] for t in TOOLS}
+
+
+def _extract_text_tool_calls(text: str) -> list[dict] | None:
+    """
+    Fallback: parse tool calls from plain text when vLLM doesn't convert them.
+    Handles two formats the model commonly emits:
+      {"name": "drive", "parameters": {"linear_x": 0.2, ...}}
+      {"name": "drive", "arguments": {"linear_x": 0.2, ...}}
+    Returns list of {"name": str, "args": dict} or None if nothing found.
+    """
+    import re
+    calls = []
+    # Find all top-level JSON objects in the text
+    for match in re.finditer(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)?\}', text, re.DOTALL):
+        try:
+            obj = json.loads(match.group())
+        except json.JSONDecodeError:
+            continue
+        name = obj.get("name") or obj.get("function")
+        if name not in KNOWN_TOOLS:
+            continue
+        args = obj.get("parameters") or obj.get("arguments") or obj.get("args") or {}
+        # Coerce string numbers to float
+        coerced = {}
+        for k, v in args.items():
+            try:
+                coerced[k] = float(v) if isinstance(v, str) else v
+            except (ValueError, TypeError):
+                coerced[k] = v
+        calls.append({"name": name, "args": coerced})
+    return calls if calls else None
+
+
 async def run_agent_openai(user_message: str, ws_client: WebSocket) -> str:
-    import json as _json
     messages = [
-        {"role": "system",  "content": SYSTEM_PROMPT},
-        {"role": "user",    "content": user_message},
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user",   "content": user_message},
     ]
 
     while True:
@@ -433,38 +466,52 @@ async def run_agent_openai(user_message: str, ws_client: WebSocket) -> str:
             max_tokens  = 1024,
         )
 
-        choice      = response.choices[0]
-        msg         = choice.message
-        tool_calls  = msg.tool_calls or []
-        text        = msg.content or ""
+        choice     = response.choices[0]
+        msg        = choice.message
+        tool_calls = msg.tool_calls or []
+        text       = msg.content or ""
 
+        print(f"DEBUG finish={choice.finish_reason} tool_calls={len(tool_calls)} text={repr(text[:120])}")
+
+        # --- Path 1: structured tool calls (parser worked) ---
         if tool_calls:
-            for call in tool_calls:
-                fn    = call.function
-                args  = _json.loads(fn.arguments) if fn.arguments else {}
-                await ws_client.send_json({"type": "status", "text": f"⚙ {fn.name}({fn.arguments})"})
-
-            # Append assistant message with tool calls
             messages.append({"role": "assistant", "content": msg.content, "tool_calls": [
-                {"id": c.id, "type": "function", "function": {"name": c.function.name, "arguments": c.function.arguments}}
+                {"id": c.id, "type": "function", "function": {
+                    "name": c.function.name, "arguments": c.function.arguments}}
                 for c in tool_calls
             ]})
-
-            # Execute tools and append results
             for call in tool_calls:
-                fn     = call.function
-                args   = _json.loads(fn.arguments) if fn.arguments else {}
+                fn    = call.function
+                args  = json.loads(fn.arguments) if fn.arguments else {}
+                await ws_client.send_json({"type": "status", "text": f"⚙ {fn.name}({fn.arguments})"})
                 result = await execute_tool(fn.name, args)
                 await ws_client.send_json({"type": "status", "text": f"✓ {result}"})
-                messages.append({
-                    "role":         "tool",
-                    "tool_call_id": call.id,
-                    "content":      result,
-                })
-
+                messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
             if choice.finish_reason == "tool_calls":
                 continue
+            return text.strip() or "Done."
 
+        # --- Path 2: model emitted JSON tool call as plain text (parser failed) ---
+        text_calls = _extract_text_tool_calls(text)
+        if text_calls:
+            results = []
+            for call in text_calls:
+                await ws_client.send_json({"type": "status", "text": f"⚙ {call['name']}({json.dumps(call['args'])})"})
+                result = await execute_tool(call["name"], call["args"])
+                await ws_client.send_json({"type": "status", "text": f"✓ {result}"})
+                results.append(result)
+            # Ask model for a natural language confirmation
+            messages.append({"role": "assistant", "content": text})
+            messages.append({"role": "user", "content": f"Tool results: {'; '.join(results)}. Confirm briefly."})
+            followup = await asyncio.to_thread(
+                llm_client.chat.completions.create,
+                model      = LLM_MODEL,
+                messages   = messages,
+                max_tokens = 128,
+            )
+            return followup.choices[0].message.content.strip() or results[0]
+
+        # --- Path 3: plain text reply (no tool call needed) ---
         return text.strip() or "Done."
 
 
