@@ -273,7 +273,7 @@ setup_ubuntu() {
         log_warning "Virtual environment already exists at: $VENV_PATH"
     else
         log_info "Creating virtual environment at: $VENV_PATH (with --system-site-packages)"
-        python3 -m venv "$VENV_PATH" --system-site-packages
+        /usr/bin/python3 -m venv "$VENV_PATH" --system-site-packages
         log_success "Virtual environment created"
     fi
 
@@ -297,7 +297,7 @@ EOF
 
     # Explicitly pin the Python executable so conda or other Pythons in PATH
     # cannot cause colcon to build extensions against the wrong interpreter.
-    PYTHON_EXEC="$VENV_PATH/bin/python3"
+    PYTHON_EXEC="/usr/bin/python3"
     colcon build --symlink-install \
         --cmake-args -DPYTHON_EXECUTABLE="$PYTHON_EXEC"
     log_success "ROS2 packages built successfully"
