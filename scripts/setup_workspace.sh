@@ -295,6 +295,10 @@ EOF
     cd "$ROS2_WS_PATH"
     source /opt/ros/$ROS_DISTRO/setup.bash
 
+    # Clean any prior build artifacts so stale Python-version-specific .so files
+    # and generated stubs cannot bleed into the new build.
+    rm -rf build install log
+
     # Explicitly pin the Python executable so conda or other Pythons in PATH
     # cannot cause colcon to build extensions against the wrong interpreter.
     PYTHON_EXEC="/usr/bin/python3"
@@ -372,6 +376,7 @@ EOF
     # Step 5: Build ROS2 packages
     log_info "[5/5] Building ROS2 packages..."
     cd "$ROS2_WS_PATH"
+    rm -rf build install log
     colcon build --symlink-install
     log_success "ROS2 packages built successfully"
 }
