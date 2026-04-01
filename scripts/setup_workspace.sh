@@ -281,8 +281,8 @@ setup_ubuntu() {
     log_info "[4/5] Installing Python packages for rosclaw_agent..."
     source "$VENV_PATH/bin/activate"
     pip install --upgrade pip
-    pip install aiortc websockets
-    log_success "Python packages installed (aiortc, websockets)"
+    pip install empy catkin_pkg lark aiortc websockets
+    log_success "Python packages installed (empy, catkin_pkg, lark, aiortc, websockets)"
 
     # Step 5: Build ROS2 packages
     log_info "[5/5] Building ROS2 packages..."
@@ -345,8 +345,8 @@ setup_macos() {
 
     # Step 4: Install agent-specific Python packages
     log_info "[4/5] Installing Python packages for rosclaw_agent..."
-    pip install aiortc websockets
-    log_success "Python packages installed (aiortc, websockets)"
+    pip install empy catkin_pkg lark aiortc websockets
+    log_success "Python packages installed (empy, catkin_pkg, lark, aiortc, websockets)"
 
     # Deactivate and reactivate to ensure proper ROS setup
     mamba deactivate
