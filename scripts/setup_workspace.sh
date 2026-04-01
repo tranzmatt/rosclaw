@@ -299,9 +299,11 @@ EOF
     # and generated stubs cannot bleed into the new build.
     rm -rf build install log
 
-    # Explicitly pin the Python executable so conda or other Pythons in PATH
-    # cannot cause colcon to build extensions against the wrong interpreter.
-    PYTHON_EXEC="/usr/bin/python3"
+    # Build against the venv Python (not the bare system Python) so that
+    # generated entry-point shebangs point into the venv.  The venv was
+    # created with --system-site-packages, so rclpy and rosidl bindings are
+    # still visible; and venv-only packages like aiortc are also reachable.
+    PYTHON_EXEC="$VENV_PATH/bin/python3"
     colcon build --symlink-install \
         --cmake-args -DPYTHON_EXECUTABLE="$PYTHON_EXEC"
     log_success "ROS2 packages built successfully"
