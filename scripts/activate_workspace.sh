@@ -163,6 +163,14 @@ activate_ubuntu() {
     log_info "[1/3] Activating virtual environment..."
     source "$venv_path/bin/activate"
 
+    # ROS2 entry-point scripts are stamped with #!/usr/bin/python3 (the system
+    # Python) rather than the venv Python, because venv creates a symlink that
+    # resolves to the system binary.  Export the venv site-packages via
+    # PYTHONPATH so venv-only packages (aiortc, etc.) are visible regardless.
+    local venv_site
+    venv_site=$(echo "$venv_path"/lib/python*/site-packages)
+    export PYTHONPATH="$venv_site${PYTHONPATH:+:$PYTHONPATH}"
+
     log_info "[2/3] Sourcing ROS2 environment..."
     if [ -f "/opt/ros/$ROS_DISTRO/setup.bash" ]; then
         source "/opt/ros/$ROS_DISTRO/setup.bash"
