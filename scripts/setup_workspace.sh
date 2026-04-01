@@ -43,7 +43,7 @@ set -e  # Exit on any error
 
 # Default values
 DEFAULT_ENV_NAME="ros_env"
-DEFAULT_ROS_DISTRO="humble"
+DEFAULT_ROS_DISTRO="jazzy"
 ENV_NAME=""
 ROS_DISTRO=""
 
@@ -277,6 +277,12 @@ setup_ubuntu() {
         log_success "Virtual environment created"
     fi
 
+    # Write config so activate_workspace.sh can auto-detect these values
+    cat > "$VENV_PATH/.rosclaw_config" << EOF
+ROS_DISTRO=$ROS_DISTRO
+ENV_NAME=$ENV_NAME
+EOF
+
     # Step 4: Install agent-specific Python packages
     log_info "[4/5] Installing Python packages for rosclaw_agent..."
     source "$VENV_PATH/bin/activate"
@@ -342,6 +348,12 @@ setup_macos() {
         pip
 
     log_success "ROS2 and development tools installed"
+
+    # Write config so activate_workspace.sh can auto-detect these values
+    cat > "$REPO_ROOT/.rosclaw_config" << EOF
+ROS_DISTRO=$ROS_DISTRO
+ENV_NAME=$ENV_NAME
+EOF
 
     # Step 4: Install agent-specific Python packages
     log_info "[4/5] Installing Python packages for rosclaw_agent..."

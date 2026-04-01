@@ -37,12 +37,27 @@ fi
 
 # Default values
 DEFAULT_ENV_NAME="ros_env"
-DEFAULT_ROS_DISTRO="humble"
-ENV_NAME="${1:-$DEFAULT_ENV_NAME}"
-ROS_DISTRO="${2:-$DEFAULT_ROS_DISTRO}"
+DEFAULT_ROS_DISTRO="jazzy"
 
-# Find the repository root
+# Find the repository root (needed before reading config)
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+
+# Load saved config from setup, if present (Ubuntu venv path or repo root for macOS)
+_ROSCLAW_CONFIG=""
+if [ -f "$REPO_ROOT/${1:-$DEFAULT_ENV_NAME}/.rosclaw_config" ]; then
+    _ROSCLAW_CONFIG="$REPO_ROOT/${1:-$DEFAULT_ENV_NAME}/.rosclaw_config"
+elif [ -f "$REPO_ROOT/.rosclaw_config" ]; then
+    _ROSCLAW_CONFIG="$REPO_ROOT/.rosclaw_config"
+fi
+
+if [ -n "$_ROSCLAW_CONFIG" ]; then
+    # Read saved values as fallback defaults (explicit args still take precedence)
+    _SAVED_ENV_NAME=$(grep '^ENV_NAME=' "$_ROSCLAW_CONFIG" | cut -d= -f2)
+    _SAVED_ROS_DISTRO=$(grep '^ROS_DISTRO=' "$_ROSCLAW_CONFIG" | cut -d= -f2)
+fi
+
+ENV_NAME="${1:-${_SAVED_ENV_NAME:-$DEFAULT_ENV_NAME}}"
+ROS_DISTRO="${2:-${_SAVED_ROS_DISTRO:-$DEFAULT_ROS_DISTRO}}"
 ROS2_WS_PATH="$REPO_ROOT/ros2_ws"
 
 # Colors for output
