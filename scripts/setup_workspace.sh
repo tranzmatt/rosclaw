@@ -294,7 +294,12 @@ EOF
     log_info "[5/5] Building ROS2 packages..."
     cd "$ROS2_WS_PATH"
     source /opt/ros/$ROS_DISTRO/setup.bash
-    colcon build --symlink-install
+
+    # Explicitly pin the Python executable so conda or other Pythons in PATH
+    # cannot cause colcon to build extensions against the wrong interpreter.
+    PYTHON_EXEC="$VENV_PATH/bin/python3"
+    colcon build --symlink-install \
+        --cmake-args -DPYTHON_EXECUTABLE="$PYTHON_EXEC"
     log_success "ROS2 packages built successfully"
 }
 
